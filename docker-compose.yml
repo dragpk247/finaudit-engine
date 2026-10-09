@@ -1,0 +1,11 @@
+services:
+  finaudit:
+    build: .
+    container_name: finaudit-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - DESKTOP_OLLAMA_URL=http://100.86.159.86:11434
+      - LOCAL_OLLAMA_URL=http://127.0.0.1:11434
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    restart: unless-stopped

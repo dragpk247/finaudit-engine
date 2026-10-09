@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinAudit AI — Smart SaaS & Spend Auditor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
+        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-6 max-w-6xl mx-auto">
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-8 pb-4 border-b border-gray-800">
+        <div>
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                FinAudit Engine
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">Hybrid AI SaaS & Bank Statement Spend Auditor</p>
+        </div>
+        <div id="aiTierBadge" class="glass px-4 py-2 rounded-full text-xs font-mono flex items-center gap-2 text-gray-300">
+            <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse"></span>
+            Checking AI Tiers...
+        </div>
+    </header>
+
+    <!-- Upload Section -->
+    <div class="glass rounded-2xl p-8 mb-8 text-center border-dashed border-2 border-gray-700 hover:border-indigo-500 transition-all">
+        <div class="max-w-md mx-auto">
+            <div class="text-4xl mb-3">💳</div>
+            <h2 class="text-lg font-semibold mb-2">Upload Bank or Credit Card CSV Statement</h2>
+            <p class="text-sm text-gray-400 mb-5">Analyze recurring SaaS charges, detect sneaky price creep, and draft cancellation letters in seconds.</p>
+            
+            <div class="flex justify-center gap-4">
+                <label class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-xl cursor-pointer transition-all shadow-lg shadow-indigo-600/30">
+                    Browse CSV
+                    <input type="file" id="fileInput" accept=".csv" class="hidden">
+                </label>
+                <button id="loadSampleBtn" class="glass hover:bg-gray-800 text-gray-300 px-5 py-2.5 rounded-xl text-sm transition-all">
+                    Load Sample Statement
+                </button>
+            </div>
+            <div id="loadingIndicator" class="hidden mt-4 text-indigo-400 text-sm flex items-center justify-center gap-2">
+                <svg class="animate-spin h-5 w-5 text-indigo-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                Auditing transactions with AI...
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results" class="hidden space-y-8">
+        <!-- Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass p-5 rounded-2xl">
+                <div class="text-xs text-gray-400 uppercase font-semibold">Total Analyzed</div>
+                <div id="totalSpend" class="text-2xl font-bold text-white mt-1">$0.00</div>
+            </div>
+            <div class="glass p-5 rounded-2xl">
+                <div class="text-xs text-gray-400 uppercase font-semibold">Recurring Subscriptions</div>
+                <div id="subCount" class="text-2xl font-bold text-indigo-400 mt-1">0</div>
+            </div>
+            <div class="glass p-5 rounded-2xl">
+                <div class="text-xs text-gray-400 uppercase font-semibold">Price Hikes Detected</div>
+                <div id="hikeCount" class="text-2xl font-bold text-red-400 mt-1">0</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border-l-4 border-emerald-500">
+                <div class="text-xs text-gray-400 uppercase font-semibold">Est. Annual Recurring</div>
+                <div id="annualWaste" class="text-2xl font-bold text-emerald-400 mt-1">$0.00</div>
+            </div>
+        </div>
+
+        <!-- Price Hikes Alert Table -->
+        <div id="hikesCard" class="glass rounded-2xl p-6 hidden">
+            <h3 class="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
+                ⚠️ Detected Price Increases
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs text-gray-400 border-b border-gray-800">
+                        <tr>
+                            <th class="pb-3">Vendor</th>
+                            <th class="pb-3">Original Rate</th>
+                            <th class="pb-3">New Rate</th>
+                            <th class="pb-3">Increase</th>
+                            <th class="pb-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hikesTableBody" class="divide-y divide-gray-800"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- AI Executive Report -->
+        <div class="glass rounded-2xl p-6">
+            <h3 class="text-lg font-bold text-indigo-300 mb-4 flex items-center gap-2">
+                🤖 AI Audit & Negotiation Scorecard
+            </h3>
+            <div id="aiReportText" class="prose prose-invert max-w-none text-gray-300 text-sm leading-relaxed whitespace-pre-wrap"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check AI health on load
+        fetch('/api/health')
+            .then(res => res.json())
+            .then(data => {
+                const badge = document.getElementById('aiTierBadge');
+                badge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> ${data.inference_tiers.active_tier}`;
+            })
+            .catch(() => {
+                const badge = document.getElementById('aiTierBadge');
+                badge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-red-400"></span> Offline`;
+            });
+
+        const fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadFile(e.target.files[0]);
+            }
+        });
+
+        document.getElementById('loadSampleBtn').addEventListener('click', () => {
+            const sampleData = `Date,Merchant,Amount
+2026-06-01,GitHub Team,12.00
+2026-06-05,Datadog Pro,65.00
+2026-06-12,Slack Business,15.00
+2026-06-15,Vercel Pro,20.00
+2026-07-01,GitHub Team,12.00
+2026-07-05,Datadog Pro,82.50
+2026-07-12,Slack Business,18.00
+2026-07-15,Vercel Pro,20.00
+2026-08-01,GitHub Team,12.00
+2026-08-05,Datadog Pro,82.50
+2026-08-12,Slack Business,18.00
+2026-08-15,Vercel Pro,20.00`;
+            const blob = new Blob([sampleData], { type: 'text/csv' });
+            const file = new File([blob], 'sample_statement.csv', { type: 'text/csv' });
+            uploadFile(file);
+        });
+
+        function uploadFile(file) {
+            const indicator = document.getElementById('loadingIndicator');
+            indicator.classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/audit/csv', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    indicator.classList.add('hidden');
+                    renderResults(data);
+                })
+                .catch(err => {
+                    indicator.classList.add('hidden');
+                    alert('Error auditing statement: ' + err);
+                });
+        }
+
+        function renderResults(data) {
+            const res = document.getElementById('results');
+            res.classList.remove('hidden');
+
+            const stats = data.statistics;
+            document.getElementById('totalSpend').innerText = `$${stats.total_spend.toLocaleString()}`;
+            document.getElementById('subCount').innerText = stats.recurring_subscriptions.length;
+            document.getElementById('hikeCount').innerText = stats.price_hikes_detected.length;
+            document.getElementById('annualWaste').innerText = `$${stats.estimated_annual_recurring_waste.toLocaleString()}`;
+
+            // Render Price Hikes
+            const hikesCard = document.getElementById('hikesCard');
+            const hikesBody = document.getElementById('hikesTableBody');
+            hikesBody.innerHTML = '';
+
+            if (stats.price_hikes_detected.length > 0) {
+                hikesCard.classList.remove('hidden');
+                stats.price_hikes_detected.forEach(hike => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="py-3 font-semibold text-white">${hike.merchant}</td>
+                        <td class="py-3 text-gray-400">$${hike.old_amount}</td>
+                        <td class="py-3 text-red-400 font-bold">$${hike.new_amount}</td>
+                        <td class="py-3 text-red-400">+${hike.percentage_hike}% (+$${hike.increase_amount})</td>
+                        <td class="py-3">
+                            <button onclick="requestNegotiate('${hike.merchant}', ${hike.new_amount}, ${hike.old_amount})" class="text-xs bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg hover:bg-indigo-600 hover:text-white transition-all">
+                                Draft Cancellation
+                            </button>
+                        </td>
+                    `;
+                    hikesBody.appendChild(row);
+                });
+            } else {
+                hikesCard.classList.add('hidden');
+            }
+
+            // Render AI Narrative
+            document.getElementById('aiReportText').innerText = data.ai_audit_narrative;
+        }
+
+        function requestNegotiate(merchant, current, old) {
+            fetch('/api/negotiate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ merchant: merchant, current_price: current, old_price: old })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(`--- Generated Cancellation / Rollback Email for ${merchant} ---\n\n` + data.email_template);
+            });
+        }
+    </script>
+</body>
+</html>
